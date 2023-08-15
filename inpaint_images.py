@@ -62,7 +62,7 @@ def inpaint_with_diffusers(prompt: str, dirs: Directories, file_ids: list[str]):
         im_mask = Image.open(in_mask_name)
 
  
-        inpainted_image = pipe(prompt=prompt, image=im_masked, mask_image=im_mask, num_inference_steps=1).images[0]
+        inpainted_image = pipe(prompt=prompt, image=im_masked, mask_image=im_mask, num_inference_steps).images[0]
         inpainted_image.save(out_image_name)
 
 
