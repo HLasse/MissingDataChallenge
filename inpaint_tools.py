@@ -1,5 +1,5 @@
 
-def read_file_list(file_list):
+def read_file_list(file_list) -> list[str]:
     try:
         file = open(file_list, 'r')
     except IOError as e:

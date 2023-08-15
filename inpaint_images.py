@@ -1,4 +1,6 @@
 import argparse
+from dataclasses import field, dataclass
+from typing import Callable, Optional, Any, Dict
 from skimage import io
 import os
 import pathlib
@@ -6,6 +8,28 @@ import numpy as np
 from inpaint_config import InPaintConfig
 from inpaint_tools import read_file_list
 from tqdm import tqdm
+from diffusers import (
+    StableDiffusionInpaintPipeline,
+    DPMSolverMultistepScheduler
+)
+from diffusers.utils import load_image
+import torch
+from PIL import Image
+
+@dataclass
+class Directories:
+    input_data_dir: str
+    output_data_dir: str
+    dataset_split: str
+    model_dir: str = field(init=False)
+    inpainted_result_dir: str = field(init=False)
+
+    def __post_init__(self):
+        self.model_dir = os.path.join(self.output_data_dir, "trained_model")
+        self.inpainted_result_dir = os.path.join(
+            self.output_data_dir, f"inpainted_{self.dataset_split}"
+        )
+        pathlib.Path(self.inpainted_result_dir).mkdir(parents=True, exist_ok=True)
 
 
 def inpaint_one_image(in_image, mask_image, avg_image):
@@ -17,41 +41,62 @@ def inpaint_one_image(in_image, mask_image, avg_image):
     return inpaint_image
 
 
-def inpaint_images(settings):
-    input_data_dir = settings["dirs"]["input_data_dir"]
-    output_data_dir = settings["dirs"]["output_data_dir"]
-    data_set = settings["data_set"]
-    model_dir = os.path.join(output_data_dir, "trained_model")
 
-    inpainted_result_dir = os.path.join(output_data_dir, f"inpainted_{data_set}")
-    pathlib.Path(inpainted_result_dir).mkdir(parents=True, exist_ok=True)
+def inpaint_with_diffusers(prompt: str, dirs: Directories, file_ids: list[str]):
+    pipe = StableDiffusionInpaintPipeline.from_pretrained(
+        "stabilityai/stable-diffusion-2-inpainting",
+        torch_dtype=torch.float16,
+)
+    pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
 
-    print(f"InPainting {data_set} and placing results in {inpainted_result_dir} with model from {model_dir}")
-
-    avg_img_name = os.path.join(model_dir, "average_image.png")
-    avg_img = io.imread(avg_img_name)
-
-    file_list = os.path.join(input_data_dir, "data_splits", data_set + ".txt")
-    file_ids = read_file_list(file_list)
-    if file_ids is None:
-        return
-
-    print(f"Inpainting {len(file_ids)} images")
-
+    pipe.to("cuda")
+    
     for idx in tqdm(file_ids):
-        in_image_name = os.path.join(input_data_dir, "masked", f"{idx}_stroke_masked.png")
-        in_mask_name = os.path.join(input_data_dir, "masks", f"{idx}_stroke_mask.png")
-        out_image_name = os.path.join(inpainted_result_dir, f"{idx}.png")
+        in_image_name = os.path.join(
+            dirs.input_data_dir, "masked", f"{idx}_stroke_masked.png"
+        )
+        in_mask_name = os.path.join(dirs.input_data_dir, "masks", f"{idx}_stroke_mask.png")
+        out_image_name = os.path.join(dirs.inpainted_result_dir, f"{idx}.png")
 
-        im_masked = io.imread(in_image_name)
-        im_mask = io.imread(in_mask_name)
+        im_masked = Image.open(in_image_name)
+        im_mask = Image.open(in_mask_name)
 
-        inpainted_image = inpaint_one_image(im_masked, im_mask, avg_img)
-        io.imsave(out_image_name, inpainted_image)
+ 
+        inpainted_image = pipe(prompt=prompt, image=im_masked, mask_image=im_mask, num_inference_steps=1).images[0]
+        inpainted_image.save(out_image_name)
 
 
-if __name__ == '__main__':
-    args = argparse.ArgumentParser(description='InpaintImages')
+
+
+def setup_directories(settings) -> Directories:
+    dirs = Directories(
+        input_data_dir=settings["dirs"]["input_data_dir"],
+        output_data_dir=settings["dirs"]["output_data_dir"],
+        dataset_split=settings["data_set"],
+    )
+    return dirs
+
+def get_file_list(dirs: Directories) -> list[str]:
+    file_list = os.path.join(dirs.input_data_dir, "data_splits", dirs.dataset_split + ".txt")
+    file_ids = read_file_list(file_list)
+    return file_ids
+
+def inpaint_images(dirs: Directories, inpaint_loop_fn: Callable, inpaint_loop_fn_kwargs: Dict[str, Any]):
+    print(
+        f"InPainting {dirs.dataset_split} and placing results in {dirs.inpainted_result_dir} with model from {dirs.model_dir}"
+    )
+
+    file_ids = get_file_list(dirs=dirs)
+    print(f"Inpainting {len(file_ids)} images")
+    inpaint_loop_fn(dirs=dirs, file_ids=file_ids, **inpaint_loop_fn_kwargs)
+
+
+
+
+if __name__ == "__main__":
+    args = argparse.ArgumentParser(description="InpaintImages")
     config = InPaintConfig(args)
     if config.settings is not None:
-        inpaint_images(config.settings)
+        dirs = setup_directories(config.settings)
+        prompt = "The face of a cat"
+        inpaint_images(dirs=dirs, inpaint_loop_fn=inpaint_with_diffusers, inpaint_loop_fn_kwargs={"prompt" : prompt})
