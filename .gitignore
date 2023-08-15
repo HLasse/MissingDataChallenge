@@ -120,3 +120,5 @@ __MACOSX/
 Inspiration/*
 *.zip
 *movie*
+MissingDataOpenData/
+.env/

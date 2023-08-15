@@ -14,3 +14,6 @@ scipy
 tifffile
 tqdm
 urllib3
+diffusers
+accelerate
+transformers

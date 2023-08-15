@@ -1,15 +1,14 @@
 {
-	"team_data":
-	{
-		"name": "YourTeamNameHere"
+	"team_data": {
+		"name": "Missing team 6"
 	},
-    "training_parms": {
-		"method": "YourMethodHere",
-		"dummy_value": 1000
-    },
-    "dirs": {
-            "input_data_dir": "C:/data/Cats/MissingDataOpenData/",
-			"output_data_dir": "C:/data/Cats/missing_data_output/"
+	"training_parms": {
+		"method": "test_push",
+		"dummy_value": 9001
+	},
+	"dirs": {
+		"input_data_dir": "/Users/au554730/Desktop/Projects/MissingDataChallenge/MissingDataOpenData",
+		"output_data_dir": "/Users/au554730/Desktop/Projects/MissingDataChallenge/MissingDataOpenData/output_data_dir"
 	},
 	"challenge_server": {
 		"address": "http://fungi.compute.dtu.dk:8080"
