@@ -38,6 +38,10 @@ def evaluate_inpainting(settings):
     f = open(evaluation_file, 'w')
     print(f"Evaluating {len(file_ids)} images")
 
+    mses = []
+    ssims = []
+    psnrs = []
+
     f.write('id, mse, ssim, psnr\n')
     for idx in tqdm(file_ids):
         org_image_name = os.path.join(input_data_dir, "originals", f"{idx}.jpg")
@@ -50,6 +54,11 @@ def evaluate_inpainting(settings):
         # print(f'MSE: {metrics["mse"]} SSIM: {metrics["ssim"]} PSNR: {metrics["psnr"]}')
         f.write(f'{idx}, {metrics["mse"]}, {metrics["ssim"]}, {metrics["psnr"]}\n')
 
+        mses.append(metrics["mse"])
+        ssims.append(metrics["ssim"])
+        psnrs.append(metrics["psnr"])
+
+    print(f"Mean MSE: {sum(mses) / len(mses)}, Mean SSIM: {sum(ssims) / len(ssims)}, Mean PSNR: {sum(psnrs) / len(psnrs)}")
 
 if __name__ == '__main__':
     args = argparse.ArgumentParser(description='EvaluateInPaintings')
